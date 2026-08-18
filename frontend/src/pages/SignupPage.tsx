@@ -1,34 +1,45 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/context/auth-context'
-import { ApiError } from '@/lib/api-client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/auth-context";
+import { ApiError } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 
 export default function SignupPage() {
-  const { signup } = useAuth()
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [passwordConfirmation, setPasswordConfirmation] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { signup } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
 
     try {
-      await signup({ fullName: null, email, password, passwordConfirmation })
-      navigate('/profile', { replace: true })
+      await signup({ fullName: null, email, password, passwordConfirmation });
+      navigate("/profile", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo completar el registro. Inténtalo de nuevo.')
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "No se pudo completar el registro. Inténtalo de nuevo.",
+      );
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -80,17 +91,22 @@ export default function SignupPage() {
                 maxLength={32}
                 autoComplete="new-password"
                 value={passwordConfirmation}
-                onChange={(event) => setPasswordConfirmation(event.target.value)}
+                onChange={(event) =>
+                  setPasswordConfirmation(event.target.value)
+                }
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}
+              {isSubmitting ? "Creando cuenta…" : "Crear cuenta"}
             </Button>
             <p className="text-sm text-muted-foreground">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-foreground underline underline-offset-4">
+              ¿Ya tienes cuenta?{" "}
+              <Link
+                to="/login"
+                className="text-foreground underline underline-offset-4"
+              >
                 Inicia sesión
               </Link>
             </p>
@@ -98,5 +114,5 @@ export default function SignupPage() {
         </form>
       </Card>
     </div>
-  )
+  );
 }

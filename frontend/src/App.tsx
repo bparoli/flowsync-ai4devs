@@ -1,8 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
-import ProtectedRoute from '@/components/ProtectedRoute'
-import LoginPage from '@/pages/LoginPage'
-import SignupPage from '@/pages/SignupPage'
-import ProfilePage from '@/pages/ProfilePage'
+import { Navigate, Route, Routes } from "react-router-dom";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import LoginPage from "@/pages/LoginPage";
+import SignupPage from "@/pages/SignupPage";
+import ProfilePage from "@/pages/ProfilePage";
 
 function App() {
   return (
@@ -14,7 +14,7 @@ function App() {
       </Route>
       <Route path="*" element={<Navigate to="/profile" replace />} />
     </Routes>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -1,15 +1,22 @@
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/context/auth-context'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/auth-context";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   function handleLogout() {
-    logout()
-    navigate('/login', { replace: true })
+    logout();
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -22,7 +29,7 @@ export default function ProfilePage() {
         <CardContent className="flex flex-col gap-2 text-sm">
           <p>
             <span className="text-muted-foreground">Nombre: </span>
-            {user?.fullName ?? '—'}
+            {user?.fullName ?? "—"}
           </p>
           <p>
             <span className="text-muted-foreground">Email: </span>
@@ -40,5 +47,5 @@ export default function ProfilePage() {
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }
