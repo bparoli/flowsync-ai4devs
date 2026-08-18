@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; case \"$f\" in */frontend/*.ts|*/frontend/*.tsx|*/frontend/*.js|*/frontend/*.jsx|*/frontend/*.css|*/frontend/*.json|*/frontend/*.md) fdir=\"${f%%/frontend/*}/frontend\"; \"$fdir/node_modules/.bin/prettier\" --write \"$f\" ;; esac; } 2>/dev/null || true",
+            "statusMessage": "Formatting frontend file..."
+          }
+        ]
+      }
+    ]
+  }
+}
