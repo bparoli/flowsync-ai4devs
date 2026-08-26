@@ -1,4 +1,12 @@
-import type { AuthResult, LoginPayload, SignupPayload, User } from '@/lib/types'
+import type {
+  AuthResult,
+  CreateTaskPayload,
+  LoginPayload,
+  SignupPayload,
+  Task,
+  UpdateTaskPayload,
+  User,
+} from '@/lib/types'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333'
 
@@ -35,13 +43,15 @@ const FIELD_LABELS: Record<string, string> = {
   email: 'el email',
   password: 'la contraseña',
   passwordConfirmation: 'la confirmación de la contraseña',
+  title: 'el título',
+  dueDate: 'la fecha',
 }
 
 const label = (field?: string) => FIELD_LABELS[field ?? ''] ?? 'el campo'
 
 /**
  * Traduce un error de VineJS a una frase que el usuario pueda entender.
- * Cubre todas las reglas que usa `app/validators/user.ts` en el backend.
+ * Cubre las reglas que usan los validadores del backend (`app/validators/`).
  */
 function translate(error: BackendError): string {
   const { rule, field, meta } = error
@@ -55,6 +65,8 @@ function translate(error: BackendError): string {
       return 'Las contraseñas no coinciden.'
     case 'email':
       return 'Introduce una dirección de email válida.'
+    case 'date':
+      return `${label(field)} no es una fecha válida.`
     case 'required':
       return `Falta rellenar ${label(field)}.`
     case 'minLength':
@@ -101,8 +113,20 @@ function toApiError(status: number, body: unknown): ApiError {
   )
 }
 
+/**
+ * El día local de quien mira, en formato `YYYY-MM-DD`. El backend lo usa
+ * para decidir si una tarea está vencida según el huso horario de cada
+ * persona, en vez de adivinarlo él mismo.
+ */
+function today(): string {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 type RequestOptions = {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PATCH'
   body?: unknown
   token?: string | null
 }
@@ -163,4 +187,43 @@ export function logout(token: string): Promise<void> {
   return request('/api/v1/account/logout', { method: 'POST', token }).then(
     () => undefined,
   )
+}
+
+export function listTasks(token: string): Promise<Task[]> {
+  return request<{ data: Task[] }>(`/api/v1/tasks?referenceDate=${today()}`, {
+    token,
+  }).then((response) => response.data)
+}
+
+export function getTask(token: string, id: number): Promise<Task> {
+  return request<{ data: Task }>(
+    `/api/v1/tasks/${id}?referenceDate=${today()}`,
+    { token },
+  ).then((response) => response.data)
+}
+
+export function createTask(
+  token: string,
+  payload: CreateTaskPayload,
+): Promise<Task> {
+  return request<{ data: Task }>(`/api/v1/tasks?referenceDate=${today()}`, {
+    method: 'POST',
+    body: payload,
+    token,
+  }).then((response) => response.data)
+}
+
+export function updateTask(
+  token: string,
+  id: number,
+  payload: UpdateTaskPayload,
+): Promise<Task> {
+  return request<{ data: Task }>(
+    `/api/v1/tasks/${id}?referenceDate=${today()}`,
+    {
+      method: 'PATCH',
+      body: payload,
+      token,
+    },
+  ).then((response) => response.data)
 }
