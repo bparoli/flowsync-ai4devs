@@ -18,6 +18,17 @@ function resolveReferenceDate(request: HttpContext['request']) {
   return DateTime.now()
 }
 
+/**
+ * Looks up a task by an id coming straight from the URL. Returns `null`
+ * for anything that isn't a real row — including a non-numeric id —
+ * instead of letting `findOrFail` throw and leak a stack trace.
+ */
+async function findTask(id: string) {
+  const parsedId = Number(id)
+  if (!Number.isInteger(parsedId)) return null
+  return Task.find(parsedId)
+}
+
 export default class TasksController {
   async index({ request, serialize }: HttpContext) {
     const tasks = await Task.query().preload('assignee')
@@ -25,8 +36,9 @@ export default class TasksController {
     return serialize(TaskTransformer.transform(tasks, resolveReferenceDate(request)))
   }
 
-  async show({ request, params, serialize }: HttpContext) {
-    const task = await Task.findOrFail(Number(params.id))
+  async show({ request, params, response, serialize }: HttpContext) {
+    const task = await findTask(params.id)
+    if (!task) return response.notFound({ errors: [{ message: 'Task not found' }] })
     await task.load('assignee')
 
     return serialize(TaskTransformer.transform(task, resolveReferenceDate(request)))
@@ -42,13 +54,13 @@ export default class TasksController {
     return serialize(TaskTransformer.transform(task, resolveReferenceDate(request)))
   }
 
-  async update({ request, params, serialize }: HttpContext) {
+  async update({ request, params, response, serialize }: HttpContext) {
     const payload = await request.validateUsing(updateTaskValidator)
-    const body = request.body()
 
-    const task = await Task.findOrFail(Number(params.id))
-    if ('status' in body) task.status = payload.status!
-    if ('dueDate' in body) task.dueDate = payload.dueDate ?? null
+    const task = await findTask(params.id)
+    if (!task) return response.notFound({ errors: [{ message: 'Task not found' }] })
+    if ('status' in payload) task.status = payload.status!
+    if ('dueDate' in payload) task.dueDate = payload.dueDate ?? null
     await task.save()
     await task.load('assignee')
 

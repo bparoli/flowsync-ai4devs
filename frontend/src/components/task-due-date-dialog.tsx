@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AlertTriangleIcon, CalendarIcon, Loader2Icon } from 'lucide-react'
 import * as api from '@/lib/api'
 import { ApiError } from '@/lib/api'
@@ -38,7 +38,14 @@ export function TaskDueDateDialog({
   const [dueDateInput, setDueDateInput] = useState('')
   const [dateError, setDateError] = useState<string | undefined>()
 
+  // Cada apertura o cambio de fecha invalida cualquier petición anterior
+  // todavía en vuelo, para que una respuesta que llega desordenada no
+  // pise un estado más reciente.
+  const requestId = useRef(0)
+
   const handleOpenChange = (open: boolean) => {
+    const currentRequest = ++requestId.current
+
     if (!open || !token) {
       setTask(null)
       setLoadError(null)
@@ -49,10 +56,12 @@ export function TaskDueDateDialog({
     api
       .getTask(token, taskId)
       .then((fetched) => {
+        if (currentRequest !== requestId.current) return
         setTask(fetched)
         setDueDateInput(fetched.dueDate ?? '')
       })
       .catch((error: unknown) => {
+        if (currentRequest !== requestId.current) return
         setLoadError(
           error instanceof ApiError
             ? error.message
@@ -64,6 +73,7 @@ export function TaskDueDateDialog({
   const handleDueDateChange = (value: string) => {
     if (!token) return
 
+    const currentRequest = ++requestId.current
     const previous = task?.dueDate ?? ''
     setDueDateInput(value)
     setDateError(undefined)
@@ -71,11 +81,13 @@ export function TaskDueDateDialog({
     api
       .updateTask(token, taskId, { dueDate: value || null })
       .then((updated) => {
+        if (currentRequest !== requestId.current) return
         setTask(updated)
         setDueDateInput(updated.dueDate ?? '')
         onUpdated(updated)
       })
       .catch((error: unknown) => {
+        if (currentRequest !== requestId.current) return
         setDueDateInput(previous)
         setDateError(
           error instanceof ApiError && error.fieldErrors.dueDate
