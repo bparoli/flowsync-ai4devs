@@ -12,16 +12,31 @@ import testUtils from '@adonisjs/core/services/test_utils'
  * El aislamiento es una transacción global y no un truncate a propósito: la
  * suite functional pega contra el mismo fichero SQLite que el servidor de
  * desarrollo (`config/database.ts` no tiene override por entorno), y vaciarlo
- * se llevaría por delante los datos con los que se está trabajando.
+ * se llevaría por delante los datos con los que se está trabajando. Ese fichero
+ * compartido es también el motivo de que aquí nunca se busque una tarea por su
+ * posición en la lista: al lado de las de la prueba hay tareas reales.
  */
 test.group('Tasks | responsable', (group) => {
   group.each.setup(() => testUtils.db().withGlobalTransaction())
 
   /**
-   * El día de referencia que exige la consulta de una tarea suelta. Es un valor
-   * cualquiera: aquí no se mira el vencimiento, pero sin él la ruta responde 422.
+   * El día de referencia que exige la consulta de una tarea suelta. Es un día
+   * cualquiera y a propósito no es el de hoy: aquí no se mira el vencimiento,
+   * pero sin el parámetro la ruta responde 422.
    */
-  const HOY = '2026-08-30'
+  const HOY = '2019-07-04'
+
+  /**
+   * Lo único que el requisito deja viajar del responsable: con qué identificarlo
+   * y con qué representarlo.
+   *
+   * Se comprueba por lista blanca y no campo a campo porque el requisito dice
+   * «ningún otro dato de esa cuenta», no «ni el email»: enumerar prohibidos
+   * dejaría pasar el siguiente que alguien añada, y arreglar la fuga a medias
+   * —quitar el email y dejar las fechas— pondría el test en verde con el
+   * requisito todavía incumplido.
+   */
+  const CAMPOS_PERMITIDOS = ['id', 'fullName', 'initials']
 
   /**
    * Quien mira nunca es el responsable de la tarea: la lista es compartida, y
@@ -45,20 +60,31 @@ test.group('Tasks | responsable', (group) => {
   }
 
   /**
-   * El responsable de la primera tarea de la lista. `GET /api/v1/tasks` viene
-   * tipado como «una tarea o varias» —su transformer sirve a los dos casos— y
-   * con el responsable opcional —la relación podría no estar precargada—. Para
-   * este requisito cualquiera de las dos cosas ya sería un fallo, así que se
-   * descartan aquí en vez de repetirlo en cada test.
+   * Solo lo que los tests leen del responsable. Que el objeto real traiga más
+   * campos que estos no es un desajuste: es justamente lo que comprueba el test
+   * de la fuga, y por eso aquí no se describe la respuesta entera.
    */
-  function responsableEnLaLista<T>(data: { assignee?: T } | { assignee?: T }[]): T {
-    if (!Array.isArray(data)) {
-      throw new Error('la lista no devolvió un array de tareas')
+  type Responsable = { fullName: string | null; initials: string }
+  type ConResponsable = { id: number; assignee?: Responsable }
+
+  /**
+   * El responsable de una tarea dentro de una respuesta de la API.
+   *
+   * Absorbe dos formas de la respuesta porque `TaskTransformer` sirve a las dos
+   * y así vienen tipadas: una tarea suelta o una lista, y en la lista se busca
+   * **por id** y nunca por posición. El responsable llega opcional en los tipos
+   * generados —la relación podría no estar precargada—, pero para este requisito
+   * no llegar ya sería un fallo, así que se descarta aquí y no en cada test.
+   */
+  function responsableDe(data: ConResponsable | ConResponsable[], tareaId?: number): Responsable {
+    const tarea = Array.isArray(data) ? data.find(({ id }) => id === tareaId) : data
+
+    if (!tarea) {
+      throw new Error(`la tarea ${tareaId} no salió en la respuesta`)
     }
 
-    const [tarea] = data
-    if (!tarea?.assignee) {
-      throw new Error('la primera tarea de la lista llegó sin responsable')
+    if (!tarea.assignee) {
+      throw new Error(`la tarea ${tarea.id} llegó sin responsable`)
     }
 
     return tarea.assignee
@@ -68,20 +94,21 @@ test.group('Tasks | responsable', (group) => {
     const { quienMira, tarea } = await espacio('Ada Lovelace', 'ada@example.com')
 
     const lista = await client.get('/api/v1/tasks').loginAs(quienMira)
-
-    lista.assertStatus(200)
-    const enLaLista = responsableEnLaLista(lista.body().data)
-    assert.equal(enLaLista.fullName, 'Ada Lovelace')
-    assert.equal(enLaLista.initials, 'AL')
-
     const suelta = await client
       .get(`/api/v1/tasks/${tarea.id}`)
       .qs({ today: HOY })
       .loginAs(quienMira)
 
+    lista.assertStatus(200)
     suelta.assertStatus(200)
-    assert.equal(suelta.body().data.assignee.fullName, 'Ada Lovelace')
-    assert.equal(suelta.body().data.assignee.initials, 'AL')
+
+    for (const [donde, assignee] of [
+      ['la lista', responsableDe(lista.body().data, tarea.id)],
+      ['la tarea suelta', responsableDe(suelta.body().data)],
+    ] as const) {
+      assert.equal(assignee.fullName, 'Ada Lovelace', `${donde} no identifica al responsable`)
+      assert.equal(assignee.initials, 'AL', `${donde} no trae las iniciales del responsable`)
+    }
   })
 
   test('la tarea no filtra datos de cuenta', async ({ client, assert }) => {
@@ -92,36 +119,69 @@ test.group('Tasks | responsable', (group) => {
       .get(`/api/v1/tasks/${tarea.id}`)
       .qs({ today: HOY })
       .loginAs(quienMira)
+    const creada = await client
+      .post('/api/v1/tasks')
+      .json({ title: 'Apuntar otra cosa' })
+      .loginAs(quienMira)
+    const cambiada = await client
+      .patch(`/api/v1/tasks/${tarea.id}/status`)
+      .json({ status: 'in_progress' })
+      .loginAs(quienMira)
+
+    lista.assertStatus(200)
+    suelta.assertStatus(200)
+    creada.assertStatus(201)
+    cambiada.assertStatus(200)
+
+    // El scenario dice «cualquier tarea, suelta o dentro de la lista»: se
+    // recorren las cuatro respuestas que devuelven una tarea, porque callar en
+    // una y hablar en otra incumple el requisito igual. La tarea recién creada
+    // es la única cuyo responsable es quien mira.
+    const respuestas = [
+      ['la lista', responsableDe(lista.body().data, tarea.id), 'ada@example.com'],
+      ['la tarea suelta', responsableDe(suelta.body().data), 'ada@example.com'],
+      ['la tarea recién creada', responsableDe(creada.body().data), 'alan@example.com'],
+      ['la tarea con el estado cambiado', responsableDe(cambiada.body().data), 'ada@example.com'],
+    ] as const
+
+    // Se recogen todas las fugas antes de aseverar, en vez de aseverar dentro
+    // del bucle: si falla la primera respuesta, un assert por vuelta abortaría
+    // el test y dejaría sin mirar las otras tres. Aquí el fallo dice de una vez
+    // hasta dónde llega el problema.
+    const fugas = respuestas.flatMap(([donde, assignee, emailDeLaCuenta]) => {
+      const deMas = Object.keys(assignee).filter((campo) => !CAMPOS_PERMITIDOS.includes(campo))
+      const conElEmail = JSON.stringify(assignee).includes(emailDeLaCuenta)
+
+      if (deMas.length === 0 && !conElEmail) return []
+
+      return [`${donde} expone ${deMas.join(', ') || 'el email'} del responsable`]
+    })
+
+    assert.deepEqual(fugas, [], fugas.join(' | '))
+  })
+
+  test('un responsable sin nombre sigue teniendo iniciales', async ({ client, assert }) => {
+    const { quienMira, tarea } = await espacio(null, 'sin-nombre@example.com')
+
+    const lista = await client.get('/api/v1/tasks').loginAs(quienMira)
+    const suelta = await client
+      .get(`/api/v1/tasks/${tarea.id}`)
+      .qs({ today: HOY })
+      .loginAs(quienMira)
 
     lista.assertStatus(200)
     suelta.assertStatus(200)
 
-    // El scenario dice «suelta o dentro de la lista»: las dos formas de obtener
-    // una tarea tienen que callar lo mismo, y basta con que una hable para
-    // incumplirlo.
     for (const [donde, assignee] of [
-      ['la lista', responsableEnLaLista(lista.body().data)],
-      ['la tarea suelta', suelta.body().data.assignee],
+      ['la lista', responsableDe(lista.body().data, tarea.id)],
+      ['la tarea suelta', responsableDe(suelta.body().data)],
     ] as const) {
-      assert.notProperty(assignee, 'email', `${donde} expone el email del responsable`)
-      assert.notProperty(assignee, 'password', `${donde} expone datos de acceso del responsable`)
-      assert.notInclude(JSON.stringify(assignee), 'ada@example.com', `${donde} filtra el email`)
+      assert.isNull(assignee.fullName, `${donde} no devuelve el nombre nulo`)
+      // Las iniciales son lo que le queda a la interfaz para representarlo, así
+      // que no pueden faltar ni llegar vacías. Que no se filtre el email es otro
+      // scenario y se comprueba en su propio test.
+      assert.isString(assignee.initials, `${donde} no trae iniciales`)
+      assert.isNotEmpty(assignee.initials, `${donde} trae las iniciales vacías`)
     }
-  })
-
-  test('un responsable sin nombre sigue teniendo iniciales', async ({ client, assert }) => {
-    const { quienMira } = await espacio(null, 'sin-nombre@example.com')
-
-    const lista = await client.get('/api/v1/tasks').loginAs(quienMira)
-
-    lista.assertStatus(200)
-
-    const assignee = responsableEnLaLista(lista.body().data)
-    assert.isNull(assignee.fullName)
-    // Las iniciales son lo que le queda a la interfaz para representarlo, así
-    // que aquí no pueden faltar ni llegar vacías. Que no se filtre el email es
-    // otro scenario y se comprueba en su propio test.
-    assert.isString(assignee.initials)
-    assert.isNotEmpty(assignee.initials)
   })
 })
