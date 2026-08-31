@@ -35,6 +35,13 @@ test.group('Tasks | responsable', (group) => {
    * dejaría pasar el siguiente que alguien añada, y arreglar la fuga a medias
    * —quitar el email y dejar las fechas— pondría el test en verde con el
    * requisito todavía incumplido.
+   *
+   * El `id` entra en la lista aunque el requisito solo nombre el nombre y las
+   * iniciales: es el identificador de la propia fila, no un dato de la cuenta,
+   * y es lo que hace referenciable al responsable. Va aquí explícito para que
+   * quede claro que es una decisión y no un descuido: si algún día se decide
+   * que tampoco debe viajar, hay que quitarlo de esta lista o el test lo seguirá
+   * dando por bueno.
    */
   const CAMPOS_PERMITIDOS = ['id', 'fullName', 'initials']
 
@@ -60,11 +67,12 @@ test.group('Tasks | responsable', (group) => {
   }
 
   /**
-   * Solo lo que los tests leen del responsable. Que el objeto real traiga más
-   * campos que estos no es un desajuste: es justamente lo que comprueba el test
-   * de la fuga, y por eso aquí no se describe la respuesta entera.
+   * Solo lo que los tests leen del responsable, más el `id` que la lista blanca
+   * da por bueno. Que el objeto real traiga más campos que estos no es un
+   * desajuste: es justamente lo que comprueba el test de la fuga, y por eso aquí
+   * no se describe la respuesta entera.
    */
-  type Responsable = { fullName: string | null; initials: string }
+  type Responsable = { id: number; fullName: string | null; initials: string }
   type ConResponsable = { id: number; assignee?: Responsable }
 
   /**
