@@ -10,10 +10,24 @@
 import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import { controllers } from '#generated/controllers'
+import openapi from '@foadonis/openapi/services/main'
 
 router.get('/', () => {
   return { hello: 'world' }
 })
+
+/**
+ * Documentación de la API: la interfaz en `/api` y el documento en `/api.json`
+ * y `/api.yaml`. Se deja el path por defecto de `registerRoutes()`.
+ *
+ * No choca con el grupo `/api/v1` de abajo: `/api` es una ruta literal y
+ * distinta de `/api/v1/...`, así que ninguna de las dos tapa a la otra.
+ *
+ * Va sin autenticar, igual que el resto de rutas públicas. `registerRoutes()`
+ * acepta un modificador para protegerlas (`(route) => route.use(...)`) el día
+ * que esto salga de local.
+ */
+openapi.registerRoutes()
 
 router
   .group(() => {
