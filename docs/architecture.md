@@ -146,7 +146,13 @@ que el grupo lleva `.use(middleware.auth())`.
 | PATCH | `/tasks/:id/status` | `TaskStatusesController.update` | `updateTaskStatusValidator` | `TaskTransformer` | sí |
 | PUT | `/tasks/:id/due-date` | `TaskDueDatesController.update` | `setTaskDueDateValidator` | `TaskDetailTransformer` | sí |
 
-Fuera de `/api/v1` solo existe `GET /`, que devuelve `{ hello: 'world' }`.
+Fuera de `/api/v1` hay cuatro rutas más, todas `GET` y **ninguna autenticada**:
+`/`, que devuelve `{ hello: 'world' }`, y las tres que registra
+`openapi.registerRoutes()` en `start/routes.ts` — `/api` (la interfaz de Scalar),
+`/api.json` y `/api.yaml` (el documento OpenAPI). Que la documentación del
+contrato sea pública es la opción por defecto del paquete y vale para local;
+`registerRoutes()` acepta un modificador para protegerla el día que esto salga
+de ahí.
 
 ## Decisiones que el diagrama no puede enseñar
 

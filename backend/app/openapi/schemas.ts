@@ -23,8 +23,8 @@ const TASK_STATUS_VALUES = [
 ] as const satisfies readonly TaskStatus[]
 
 type Exhaustive = TaskStatus extends (typeof TASK_STATUS_VALUES)[number] ? true : never
-const _todosLosEstadosCubiertos: Exhaustive = true
-void _todosLosEstadosCubiertos
+const todosLosEstadosCubiertos: Exhaustive = true
+void todosLosEstadosCubiertos
 
 type Schema = OpenAPIV3.SchemaObject
 type Ref = OpenAPIV3.ReferenceObject
