@@ -86,9 +86,18 @@ concreto:
 
 ## Estado
 
+**Reemplazada (2027-08-31)** por
+[ADR 0002 — Los tests de integración como única fuente de verdad ejecutable](0002-tests-como-fuente-de-verdad-ejecutable.md),
+que traslada la fuente de verdad a la suite de integración y congela
+`openspec/` como registro histórico.
+
 Aceptada (2026-08-31). Registra y hace explícita una práctica que ya venía
 siguiéndose: los tres changes de `openspec/changes/archive/` son anteriores a
 este ADR.
+
+El contexto y la decisión de más arriba se conservan tal y como se escribieron:
+son lo que se creía y se decidió entonces, y un ADR reemplazado no se corrige
+—se lee junto al que lo reemplaza para entender por qué cambió el criterio.
 
 ## Consecuencias
 
