@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/use-auth'
 import { useAuthForm } from '@/auth/use-auth-form'
 import { TaskItem } from '@/components/task-item'
 import { TaskFilter } from '@/components/task-filter'
+import { TeamProgress } from '@/components/team-progress'
 import { FieldError } from '@/components/field-error'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,16 @@ export function TasksPage() {
   // Tareas con un cambio de estado en vuelo, para no encadenar dos clics
   // sobre la misma fila antes de saber si el primero cuajó.
   const [pendingIds, setPendingIds] = useState<ReadonlySet<number>>(new Set())
+  // El estado de cada tarea del equipo, sin filtro, para la barra de progreso.
+  // Va aparte de `tasks` porque esa lista solo tiene lo que pasa el filtro.
+  const [teamStatuses, setTeamStatuses] = useState<ReadonlyMap<
+    number,
+    TaskStatus
+  > | null>(null)
+
+  const setTeamStatus = useCallback((id: number, status: TaskStatus) => {
+    setTeamStatuses((current) => current && new Map(current).set(id, status))
+  }, [])
 
   /**
    * El mismo predicado que aplica el servidor. Tenerlo también aquí es lo que
@@ -117,6 +128,28 @@ export function TasksPage() {
     }
   }, [token, statusParam])
 
+  useEffect(() => {
+    if (!token) return
+
+    let cancelled = false
+
+    // La vista por defecto deja fuera las hechas, así que el total del equipo
+    // son las dos consultas juntas. No depende del filtro: se pide una vez.
+    Promise.all([api.listTasks(token), api.listTasks(token, 'done')])
+      .then(([open, done]) => {
+        if (cancelled) return
+        setTeamStatuses(
+          new Map([...open, ...done].map((task) => [task.id, task.status])),
+        )
+      })
+      // Sin el recuento no se pinta la barra; la lista sigue funcionando.
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
   const handleFilter = (status: TaskStatus | null) => {
     // Quitar el filtro es borrar el parámetro, no poner uno que diga «todas»:
     // la vista por defecto es la ausencia de filtro, no un filtro más.
@@ -141,6 +174,7 @@ export function TasksPage() {
       // La API devuelve la lista con las más recientes primero, así que la
       // recién creada entra por arriba. Sin recargar ni volver a pedirla.
       setTasks((current) => [created, ...(current ?? [])])
+      setTeamStatus(created.id, created.status)
       setTitle('')
 
       // Toda tarea nace pendiente, así que con el filtro puesto en otro estado
@@ -168,6 +202,7 @@ export function TasksPage() {
             item.id === task.id ? { ...item, status } : item,
           ) ?? current,
       )
+      setTeamStatus(task.id, status)
       setPendingIds((current) => new Set(current).add(task.id))
       setStatusError(null)
       setNotice(
@@ -185,6 +220,7 @@ export function TasksPage() {
             current?.map((item) => (item.id === updated.id ? updated : item)) ??
             current,
         )
+        setTeamStatus(updated.id, updated.status)
       } catch (error: unknown) {
         setTasks(
           (current) =>
@@ -192,6 +228,7 @@ export function TasksPage() {
               item.id === task.id ? { ...item, status: previousStatus } : item,
             ) ?? current,
         )
+        setTeamStatus(task.id, previousStatus)
         setNotice(null)
         setStatusError(
           `No se ha podido cambiar el estado. ${
@@ -206,7 +243,7 @@ export function TasksPage() {
         })
       }
     },
-    [matchesFilter, pendingIds, token],
+    [matchesFilter, pendingIds, setTeamStatus, token],
   )
 
   // Lo que se pinta no es lo que trajo la API sino lo que sigue cumpliendo el
@@ -216,6 +253,10 @@ export function TasksPage() {
   // El estado pedido, si de verdad es uno de los tres. Se busca en vez de
   // afirmarlo con un `as`: lo que viene de la URL no merece ese voto de
   // confianza, y aquí es donde se nota si no lo era.
+  const teamDone = teamStatuses
+    ? [...teamStatuses.values()].filter((status) => status === 'done').length
+    : 0
+
   const activeStatus = TASK_STATUSES.find((status) => status === statusParam)
 
   return (
@@ -292,6 +333,10 @@ export function TasksPage() {
             <InfoIcon />
             <AlertDescription>{notice}</AlertDescription>
           </Alert>
+        )}
+
+        {teamStatuses && teamStatuses.size > 0 && (
+          <TeamProgress done={teamDone} total={teamStatuses.size} />
         )}
 
         {visibleTasks === undefined ? (
