@@ -153,6 +153,16 @@ Organización de `src/`:
 - `routes/` — `app-routes.tsx` más los guards `protected-route.tsx` y `public-only-route.tsx`.
 - `pages/`, `components/` — pantallas y componentes propios.
 
+### De dónde sale una pieza de interfaz nueva
+
+Antes de escribir un componente, se busca en este orden y se usa el primero que sirva:
+
+1. **Lo que ya hay**: `src/components/ui/` (shadcn) y `src/components/` (propios). Si algo parecido existe, se reutiliza o se extiende; no se escribe una segunda versión.
+2. **El catálogo de shadcn/ui**: si la pieza existe allí (progress, dialog, select, tabs…), se trae con `npx shadcn@latest add <componente>`, aunque hacerla a mano parezca más corto. Hacerla a mano es renunciar a la accesibilidad y al tema que ya trae.
+3. **Composición propia** en `src/components/`, solo si las dos anteriores no sirven: se arma con las primitivas de `ui/` y los tokens de `src/index.css`, y el comentario de cabecera dice por qué no valía ninguna de las dos.
+
+No se añade otra librería de componentes ni de estilos. Los colores salen siempre de los tokens: el hook `PostToolUse` `.claude/hooks/color-a-pelo.sh` avisa (no bloquea) cuando una escritura en `src/` trae un hex, un `rgb()`/`oklch()` o una clase de la paleta fija de Tailwind (`bg-red-500`, `text-white`). `src/index.css` queda fuera porque es donde se definen. Lo que el hook no puede comprobar es el orden de arriba: eso queda en manos de quien escribe.
+
 La URL de la API sale de `VITE_API_URL` (ver `frontend/.env.example`); por defecto `http://localhost:3333`.
 
 ## Reglas de proceso

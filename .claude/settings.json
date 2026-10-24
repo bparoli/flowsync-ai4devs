@@ -40,6 +40,17 @@
             "command": "jq -r '.tool_response.filePath // .tool_input.file_path // empty' | { read -r f; case \"$f\" in \"$CLAUDE_PROJECT_DIR\"/frontend/*) cd \"$CLAUDE_PROJECT_DIR/frontend\" && ./node_modules/.bin/prettier --write --ignore-unknown \"$f\";; esac; } 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Buscando colores a pelo en el frontend...",
+            "timeout": 30,
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/color-a-pelo.sh"
+          }
+        ]
       }
     ]
   }
